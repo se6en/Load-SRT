@@ -1,4 +1,11 @@
 # Load-SRT
+# 6/24/2022
+Implement the function of parse format information from subtitle file. Including bold(<>), italic, underline and color indformation.
+Color tag may be hex value string, color name string or color rgb value string, also support to convert them to C++ format color value COLORREF.
+These format will be applied while drawing the content.
+
+Known issue: Does not support Unicode string yet.
+
 # 4/22/2021
 Load SubRip Subtitle File (.srt) without format information.
 
