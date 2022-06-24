@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <codecvt>
 #include "SRTDataManager.h"
 
 #define WM_MSG_REFRESH                  WM_USER + 111
@@ -27,7 +28,10 @@ void LoadSRTThread(LPVOID lpData)
          continue;
       }
 
-      // 1. Get line count
+      //1. init state
+      int nState = LOAD_FAILED;
+
+      // 2. Get line count
       int nLineCount = 0;
       HRESULT hResult = pWnd->GetSRTFileLineCount(nLineCount);
 
@@ -42,18 +46,21 @@ void LoadSRTThread(LPVOID lpData)
 
       if (fileSRT.fail())
       {
+         fileSRT.close();
+         fileSRT.clear();
          break;
       }
 
-      int nState = LOAD_INITIALIZE;
+      nState = LOAD_INITIALIZE;
       
       CString strTimeInfo = _T("");
       CString strStratTimeInfo = _T("");
       CString strEndTimeInfo = _T("");
-      CString strContent = _T("");
+      std::string content = "";
 
       int nCurLine = 0;
 
+      // 3. begin to read file content
       std::string strLine;
       while (std::getline(fileSRT, strLine))
       {
@@ -68,53 +75,65 @@ void LoadSRTThread(LPVOID lpData)
             break;
          }
 
+         if (nState == LOAD_FAILED)
+         {
+            break;
+         }
+
+         // checked several applications that an extra line without any content will be ignored directly
          if (strLine.empty())
          {
-            if (nState != LOAD_CONTENT)
+            if (nState == LOAD_CONTENT)
             {
-               nState = LOAD_FAILED;
-               break;
+               if (!strStratTimeInfo.IsEmpty() && !strEndTimeInfo.IsEmpty() && !content.empty())
+               {
+                  pWnd->AddSRTData(strStratTimeInfo, strEndTimeInfo, content);
+
+                  strStratTimeInfo.Empty();
+                  strEndTimeInfo.Empty();
+                  content = "";
+
+                  nState = LOAD_INITIALIZE;
+               }
             }
-
-            if (strStratTimeInfo.IsEmpty() || strEndTimeInfo.IsEmpty() || strContent.IsEmpty())
-            {
-               nState = LOAD_INITIALIZE;
-               continue;
-            }
-
-            pWnd->AddSRTData(strStratTimeInfo, strEndTimeInfo, strContent);
-
-            pWnd->LoadingFile((float)nCurLine / (float)nLineCount);
-
-            strStratTimeInfo.Empty();
-            strEndTimeInfo.Empty();
-            strContent.Empty();
-
-            nState = LOAD_INITIALIZE;
             continue;
          }
 
          switch (nState)
          {
             case LOAD_INITIALIZE:
+            {
                nState = LOAD_TIME_INFO;
-               break;
+            }
+            break;
             case LOAD_TIME_INFO:
-               pWnd->GetTimeInfo(strLine.c_str(), strStratTimeInfo, strEndTimeInfo);
-               nState = LOAD_CONTENT;
-               break;
-            case LOAD_CONTENT:
-               if (!strContent.IsEmpty())
+            {
+               if (FAILED(pWnd->GetTimeInfo(strLine.c_str(), strStratTimeInfo, strEndTimeInfo)))
                {
-                  strContent += _T("\n");
+                  nState = LOAD_FAILED;
                }
-
-               strContent += pWnd->ConvertStringToUnicodeCString(strLine.c_str());
-               break;
+               else
+               {
+                  nState = LOAD_CONTENT;
+               }
+            }
+            break;
+            case LOAD_CONTENT:
+            {
+               if (!content.empty())
+               {
+                  content += "\n";
+               }
+               content += strLine;
+            }
+            break;
             default:
                break;
          }
       }
+
+      fileSRT.close();
+      fileSRT.clear();
 
       if (nState == LOAD_FAILED)
       {
@@ -122,11 +141,19 @@ void LoadSRTThread(LPVOID lpData)
       }
       else
       {
+         if (!strStratTimeInfo.IsEmpty() && !strEndTimeInfo.IsEmpty() && !content.empty())
+         {
+            pWnd->AddSRTData(strStratTimeInfo, strEndTimeInfo, content);
+         }
+
+         pWnd->LoadingFile((float)nCurLine / (float)nLineCount);
+
          pWnd->LoadFinished();
       }
 
       bFinished = TRUE;
    }
+
 
    pWnd->PostMessageW(WM_MSG_LOAD_FINISHED);
 }
@@ -228,7 +255,7 @@ void CDlgLoadSRTProgress::OnPaint()
 
    int nProgressWidth = rcProgress.Width();
 
-   rcProgress.right = rcProgress.left + nProgressWidth * m_fProgress;
+   rcProgress.right = rcProgress.left + static_cast<int>(static_cast<float>(nProgressWidth) * m_fProgress);
 
    memDC.FillSolidRect(rcProgress, RGB(0, 0, 255));
 
@@ -375,33 +402,51 @@ CString CDlgLoadSRTProgress::ConvertStringToUnicodeCString(const char * pszUTF8)
    return strConvert;
 }
 
-void CDlgLoadSRTProgress::GetTimeInfo(const char * pszUTF8, CString & strStartTime, CString & strEndTime)
+HRESULT CDlgLoadSRTProgress::GetTimeInfo(const char * pszUTF8, CString & strStartTime, CString & strEndTime)
 {
    CString strTimeInfo = ConvertStringToUnicodeCString(pszUTF8);
 
    if (strTimeInfo.IsEmpty())
    {
-      return;
+      return S_FALSE;
    }
 
    int nPos = strTimeInfo.Find(_T("-->"));
    if (nPos < 0)
    {
-      return;
+      return S_FALSE;
    }
 
    strStartTime = strTimeInfo.Left(nPos);
    strStartTime.Trim();
 
+   if (strStartTime.IsEmpty())
+   {
+      return S_FALSE;
+   }
+
    nPos += 3;
    int nLength = strTimeInfo.GetLength() - nPos;
+
+   if (nLength <= 0)
+   {
+      return S_FALSE;
+   }
+
    strEndTime = strTimeInfo.Mid(nPos, nLength);
    strEndTime.Trim();
+
+   if (strEndTime.IsEmpty())
+   {
+      return S_FALSE;
+   }
+
+   return S_OK;
 }
 
-void CDlgLoadSRTProgress::AddSRTData(CString strStartTime, CString strEndTime, CString strContent)
+void CDlgLoadSRTProgress::AddSRTData(CString strStartTime, CString strEndTime, std::string content)
 {
-   CSRTDataManager::GetInstance()->AddSRTData(strStartTime, strEndTime, strContent);
+   CSRTDataManager::GetInstance()->AddSRTData(strStartTime, strEndTime, content);
 }
 
 void CDlgLoadSRTProgress::StartThread()

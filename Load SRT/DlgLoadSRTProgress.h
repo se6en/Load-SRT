@@ -65,9 +65,9 @@ public:
 
    CString ConvertStringToUnicodeCString(const char* pszUTF8);
 
-   void GetTimeInfo(const char* pszUTF8, CString& strStartTime, CString& strEndTime);
+   HRESULT GetTimeInfo(const char* pszUTF8, CString& strStartTime, CString& strEndTime);
 
-   void AddSRTData(CString strStartTime, CString strEndTime, CString strContent);
+   void AddSRTData(CString strStartTime, CString strEndTime, std::string content);
 
 private:
    void StartThread();

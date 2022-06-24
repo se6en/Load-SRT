@@ -1,6 +1,16 @@
 #include "stdafx.h"
 #include "StaticDrawSRT.h"
 
+D2D_COLOR_F GetD2DColorFromColorref(COLORREF clr, int iOpacity)
+{
+   D2D_COLOR_F d2dColor;
+   d2dColor.a = (float)iOpacity / 100.0f;
+   d2dColor.b = (float)GetBValue(clr) / 255.0f;
+   d2dColor.g = (float)GetGValue(clr) / 255.0f;
+   d2dColor.r = (float)GetRValue(clr) / 255.0f;
+   return d2dColor;
+}
+
 IMPLEMENT_DYNAMIC(CStaticDrawSRT, CStatic)
 
 CStaticDrawSRT::CStaticDrawSRT()
@@ -138,7 +148,7 @@ void CStaticDrawSRT::PreSubclassWindow()
    CStatic::PreSubclassWindow();
 }
 
-void CStaticDrawSRT::ShowSRTData(CString strStartTime, CString strEndTime, CString strContent)
+void CStaticDrawSRT::ShowSRTData(CSRTDataManager::SRTData const& data)
 {
    if (m_pDWriteFactory == nullptr)
    {
@@ -153,10 +163,13 @@ void CStaticDrawSRT::ShowSRTData(CString strStartTime, CString strEndTime, CStri
       return;
    }
 
-   CString strData = strStartTime + _T("\n");
-   strData += strEndTime;
+   CString strData = data.startTime + _T("\n");
+   strData += data.endTime;
    strData += _T("\n");
-   strData += strContent;
+
+   int nIndexOffset = strData.GetLength();
+
+   strData += data.content;
 
    ComPtr<IDWriteTextFormat> pD2DTextFormat = nullptr;
    HRESULT hr = m_pDWriteFactory->CreateTextFormat(
@@ -186,6 +199,36 @@ void CStaticDrawSRT::ShowSRTData(CString strStartTime, CString strEndTime, CStri
       (FLOAT)rcClient.Height(),
       &m_pTextLayout
    );
+
+   for (auto pColorInfo : data.vecColorInfo)
+   {
+      D2D1_COLOR_F clrTextInfo = GetD2DColorFromColorref(pColorInfo.color, 100);
+      for (auto pIndex : pColorInfo.vecIndex)
+      {
+         DWRITE_TEXT_RANGE textRange = { static_cast<UINT32>(pIndex.first + nIndexOffset), static_cast<UINT32>(pIndex.second - pIndex.first + 1) };
+         ComPtr<ID2D1SolidColorBrush> pBrush = nullptr;
+         HRESULT hr = m_pD2DContext->CreateSolidColorBrush(clrTextInfo, &pBrush);
+         m_pTextLayout->SetDrawingEffect(pBrush.Get(), textRange);
+      }
+   }
+
+   for (auto pBoldIndex : data.vecBoldInfo)
+   {
+      DWRITE_TEXT_RANGE textRange = { static_cast<UINT32>(pBoldIndex.first + nIndexOffset), static_cast<UINT32>(pBoldIndex.second - pBoldIndex.first + 1) };
+      m_pTextLayout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, textRange);
+   }
+
+   for (auto pItalicIndex : data.vecItalicInfo)
+   {
+      DWRITE_TEXT_RANGE textRange = { static_cast<UINT32>(pItalicIndex.first + nIndexOffset), static_cast<UINT32>(pItalicIndex.second - pItalicIndex.first + 1) };
+      m_pTextLayout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, textRange);
+   }
+
+   for (auto pUnderlineIndex : data.vecUnderlineInfo)
+   {
+      DWRITE_TEXT_RANGE textRange = { static_cast<UINT32>(pUnderlineIndex.first + nIndexOffset), static_cast<UINT32>(pUnderlineIndex.second - pUnderlineIndex.first + 1) };
+      m_pTextLayout->SetUnderline(TRUE, textRange);
+   }
 
    if (FAILED(hr))
    {

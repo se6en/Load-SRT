@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SRTDataManager.h"
+
 using namespace Microsoft::WRL;
 
 class CStaticDrawSRT : public CStatic
@@ -17,7 +19,7 @@ public:
    DECLARE_MESSAGE_MAP()
 
 public:
-   void ShowSRTData(CString strStartTime, CString strEndTime, CString strContent);
+   void ShowSRTData(CSRTDataManager::SRTData const& data);
 
 private:
    HRESULT CreateDeviceIndependentResources();
