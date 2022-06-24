@@ -161,12 +161,16 @@ void CLoadSRTDlg::OnBnClickedButtonLoadSrtFile()
       return;
    }
 
-   CString strStartTime, strEndTime, strContent;
+   CSRTDataManager::SRTData data;
+   data.startTime = CSRTDataManager::GetInstance()->GetSRTDataStartTime(0.f);
+   data.endTime = CSRTDataManager::GetInstance()->GetSRTDataEndTime(0.f);
+   data.content = CSRTDataManager::GetInstance()->GetSRTDataContent(0.f);
+   CSRTDataManager::GetInstance()->GetSRTDataBoldInfo(0.f, data.vecBoldInfo);
+   CSRTDataManager::GetInstance()->GetSRTDataItalicInfo(0.f, data.vecItalicInfo);
+   CSRTDataManager::GetInstance()->GetSRTDataUnderlineInfo(0.f, data.vecUnderlineInfo);
+   CSRTDataManager::GetInstance()->GetSRTDataColorInfo(0.f, data.vecColorInfo);
 
-   std::tie(strStartTime, strEndTime, strContent) = CSRTDataManager::GetInstance()->GetSRTData(0.f);
-
-   m_staticDrawSRT.ShowSRTData(strStartTime, strEndTime, strContent);
-
+   m_staticDrawSRT.ShowSRTData(data);
 }
 
 void CLoadSRTDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
@@ -176,11 +180,16 @@ void CLoadSRTDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
       return;
    }
 
-   int nCurPos = m_sliderProgress.GetPos();
+   float fCurPos = static_cast<float>(m_sliderProgress.GetPos()) / 100.f;
 
-   CString strStartTime, strEndTime, strContent;
+   CSRTDataManager::SRTData data;
+   data.startTime = CSRTDataManager::GetInstance()->GetSRTDataStartTime(fCurPos);
+   data.endTime = CSRTDataManager::GetInstance()->GetSRTDataEndTime(fCurPos);
+   data.content = CSRTDataManager::GetInstance()->GetSRTDataContent(fCurPos);
+   CSRTDataManager::GetInstance()->GetSRTDataBoldInfo(fCurPos, data.vecBoldInfo);
+   CSRTDataManager::GetInstance()->GetSRTDataItalicInfo(fCurPos, data.vecItalicInfo);
+   CSRTDataManager::GetInstance()->GetSRTDataUnderlineInfo(fCurPos, data.vecUnderlineInfo);
+   CSRTDataManager::GetInstance()->GetSRTDataColorInfo(fCurPos, data.vecColorInfo);
 
-   std::tie(strStartTime, strEndTime, strContent) = CSRTDataManager::GetInstance()->GetSRTData((float)nCurPos / 100.f);
-
-   m_staticDrawSRT.ShowSRTData(strStartTime, strEndTime, strContent);
+   m_staticDrawSRT.ShowSRTData(data);
 }
