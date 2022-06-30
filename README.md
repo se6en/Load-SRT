@@ -7,7 +7,7 @@ According to my test, all these files can be loaded correctly. Both content and 
 But since I found that the <i>std::wbuffer_convert</i> is deprecated since C++17, I create another branch to try to read the content without extra interface. Will be merged into the main branch after I finished.
 
 # 6/24/2022
-Implement the function of parse format information from subtitle file. Including bold(<>), italic, underline and color indformation.
+Implement the function of parse format information from subtitle file. Including <b>bold</b>, <i>italic</i>, <u>underline</u> and <font color=red>color</font> indformation.
 Color tag may be hex value string, color name string or color rgb value string, also support to convert them to C++ format color value COLORREF.
 These format will be applied while drawing the content.
 
