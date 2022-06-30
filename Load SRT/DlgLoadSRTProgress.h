@@ -23,6 +23,14 @@ enum LOADING_STATUS
    LOADING_SUCEESS
 };
 
+enum ENCODE_TYPE
+{
+   ENCODE_DEFAULT,
+   ENCODE_UTF8_BOM,
+   ENCODE_UTF16_BE_BOM,
+   ENCODE_UTF16_LE_BOM
+};
+
 class CDlgLoadSRTProgress : public CDialogEx
 {
    DECLARE_DYNAMIC(CDlgLoadSRTProgress)
@@ -47,8 +55,19 @@ protected:
    LRESULT OnLoadFinished(WPARAM wParam, LPARAM lParam);
 
 public:
-   void SetFilePath(CString strFilePath);
+   HRESULT PreLoadFile(CString strFilePath);
+
+   HRESULT SetFilePath(CString strFilePath);
    CString GetFilePath() { return m_strFilePath; };
+
+   void DecodeFileStream(std::wistream& fileStream);
+
+   void DecodeUTF8();
+   void DecodeUTF8BOM();
+   void DecodeUTF16BE();
+   void DecodeUTF16LE();
+
+   void DecodeFile();
 
    void SetAbortThread(BOOL bAbort) { m_bAbortThread = bAbort; };
    BOOL GetAbortThread() { return m_bAbortThread; };
@@ -57,21 +76,25 @@ public:
 
    void LoadSRTData();
 
+   void LoadInit();
    void OpenFileFailed();
    void CountingLines();
+   void SetLoadLineCount(int nCurLine);
    void LoadingFile(float fProgress);
    void LoadFailed();
    void LoadFinished();
 
    CString ConvertStringToUnicodeCString(const char* pszUTF8);
 
-   HRESULT GetTimeInfo(const char* pszUTF8, CString& strStartTime, CString& strEndTime);
+   HRESULT GetTimeInfo(CString strContent, CString& strStartTime, CString& strEndTime);
 
-   void AddSRTData(CString strStartTime, CString strEndTime, std::string content);
+   void AddSRTData(CString strStartTime, CString strEndTime, CString strContent);
 
 private:
    void StartThread();
    void AbortThread();
+
+   HRESULT CountLineCount();
 
 private:
    CString                          m_strFilePath;
@@ -86,4 +109,6 @@ private:
 
    CFont*                           m_pFont;
 
+   int m_nEncodeType;
+   int m_nLineCount;
 };

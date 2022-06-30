@@ -154,7 +154,11 @@ void CLoadSRTDlg::OnBnClickedButtonLoadSrtFile()
    }
 
    CDlgLoadSRTProgress dlgProgress;
-   dlgProgress.SetFilePath(strFilePath);
+   
+   if (FAILED(dlgProgress.SetFilePath(strFilePath)))
+   {
+      return;
+   }
 
    if (dlgProgress.DoModal() != IDOK)
    {

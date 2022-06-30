@@ -10,7 +10,7 @@ public:
 
    static CSRTDataManager* GetInstance();
 
-   void AddSRTData(CString strStartTime, CString strEndTime, std::string content);
+   void AddSRTData(CString strStartTime, CString strEndTime, CString content);
 
    struct ColorInfo
    {
@@ -33,18 +33,18 @@ public:
 
    struct RemoveTagParams
    {
-      std::string content;
-      std::regex reInfo;
-      std::string strPreTag;
-      std::string strSufTag;
+      CString content;
+      std::wregex reInfo;
+      CString strPreTag;
+      CString strSufTag;
    };
-   std::string RemoveTag(RemoveTagParams params);
+   CString RemoveTag(RemoveTagParams params);
 
-   std::string RemoveBoldTag(std::string const& content);
-   std::string RemoveItalicTag(std::string const& content);
-   std::string RemoveUnderlineTag(std::string const& content);
+   CString RemoveBoldTag(CString const& content);
+   CString RemoveItalicTag(CString const& content);
+   CString RemoveUnderlineTag(CString const& content);
 
-   std::string RmoveColorTag(std::string const& content);
+   CString RmoveColorTag(CString const& content);
 
    CString GetSRTDataStartTime(float fProgress);
    CString GetSRTDataEndTime(float fProgress);
@@ -61,21 +61,21 @@ private:
 
    struct ExtractInfoParams
    {
-      std::string content;
-      std::regex reInfo;
-      std::string strPreTag;
-      std::string strSufTag;
+      CString content;
+      std::wregex reInfo;
+      CString strPreTag;
+      CString strSufTag;
    };
 
    void ExtractInfo(ExtractInfoParams& info, std::vector<std::pair<int, int>>& vecRestlt);
 
-   void ParseBoldInfo(std::string const& content, std::vector<std::pair<int, int>>& vecRestlt);
-   void ParseItalicInfo(std::string const& content, std::vector<std::pair<int, int>>& vecRestlt);
-   void ParseUnderlineInfo(std::string const& content, std::vector<std::pair<int, int>>& vecRestlt);
+   void ParseBoldInfo(CString const& strContent, std::vector<std::pair<int, int>>& vecRestlt);
+   void ParseItalicInfo(CString const& strContent, std::vector<std::pair<int, int>>& vecRestlt);
+   void ParseUnderlineInfo(CString const& strContent, std::vector<std::pair<int, int>>& vecRestlt);
 
-   void ExtractColorInfo(std::string const& content, std::vector<ColorInfo>& vecRestlt);
+   void ExtractColorInfo(CString const& strContent, std::vector<ColorInfo>& vecRestlt);
 
-   void ParseColorInfo(std::string const& content, std::vector<ColorInfo>& vecRestlt);
+   void ParseColorInfo(CString const& strContent, std::vector<ColorInfo>& vecRestlt);
 
    size_t GetRelatedIndex(float fProgress);
 
