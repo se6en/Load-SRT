@@ -1,4 +1,11 @@
 # Load-SRT
+# 6/30/2022
+Implement loading SRT files encoded with ANSI, UTF-8, UTF-8-BOM, UTF-16 BE BOM and UTF-16 LE BOM. Currently the application will preload the file to distinguish the encoder of the file at first. Then it will use <b>std::wbuffer_convert</b> to covert the file stream and read each line in the file.
+
+According to my test, all these files can be loaded correctly. Both content and format are kept as expected.
+
+But since I found that the <b>std::wbuffer_convert</b> is deprecated since C++17, I create another branch to try to read the content without extra interface. Will be merged into the main branch after I finished.
+
 # 6/24/2022
 Implement the function of parse format information from subtitle file. Including bold(<>), italic, underline and color indformation.
 Color tag may be hex value string, color name string or color rgb value string, also support to convert them to C++ format color value COLORREF.
