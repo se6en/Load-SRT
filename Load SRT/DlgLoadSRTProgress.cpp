@@ -1,11 +1,15 @@
 #include "stdafx.h"
 #include "resource.h"
 #include "DlgLoadSRTProgress.h"
-#include <iostream>
-#include <fstream>
-#include <string>
 #include <codecvt>
+#include <stdio.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <cwchar>
+#include <cstdlib>
 #include "SRTDataManager.h"
+#include "SRTContentManager.h"
 
 #define WM_MSG_REFRESH                  WM_USER + 111
 #define WM_MSG_LOAD_FINISHED            WM_USER + 112
@@ -22,13 +26,36 @@ void LoadSRTThread(LPVOID lpData)
    {
       CString strFilePath = pWnd->GetFilePath();
 
-      if (strFilePath.IsEmpty() || !PathFileExists(strFilePath))
-      {
-         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-         continue;
-      }
+      //std::fstream fileStream;
+      //fileStream.open(strFilePath, std::ios::in | std::ios::binary);
 
-      //1. init state
+      ///*std::wbuffer_convert<std::codecvt_utf8<wchar_t, 0x10ffff, std::generate_header>> convert(fileStream.rdbuf());
+
+      //std::wistream wideFileStream(&convert);*/
+      //std::string wstr;
+      //while (std::getline(fileStream, wstr))
+      //{
+      //   std::string result;
+      //   WCHAR *strSrc;
+      //   LPSTR szRes;
+
+      //   int i = MultiByteToWideChar(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0);
+      //   strSrc = new WCHAR[i + 1];
+      //   MultiByteToWideChar(CP_UTF8, 0, wstr.c_str(), -1, strSrc, i);
+
+      //   i = WideCharToMultiByte(CP_ACP, 0, strSrc, -1, NULL, 0, NULL, NULL);
+      //   szRes = new CHAR[i + 1];
+      //   WideCharToMultiByte(CP_ACP, 0, strSrc, -1, szRes, i, NULL, NULL);
+
+      //   result = szRes;
+      //   delete[]strSrc;
+      //   delete[]szRes;
+
+      //   /*std::wstring strCorrect = wstr.substr(3);
+      //   std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt2;
+      //   std::string u8str = cvt2.to_bytes(wstr);*/
+      //}
+
       int nState = LOAD_FAILED;
 
       // 2. Get line count
@@ -41,7 +68,25 @@ void LoadSRTThread(LPVOID lpData)
          break;
       }
 
+      //std::fstream fileStream;
+      //fileStream.open(strFilePath, std::ios::in | std::ios::binary);
+
+      ////std::wbuffer_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::generate_header/*little_endian*/>> convert(fileStream.rdbuf());
+      //std::wbuffer_convert<std::codecvt_utf8<wchar_t, 0x10ffff, std::generate_header/*little_endian*/>> convert(fileStream.rdbuf());
+
+      //std::wistream wideFileStream(&convert);
+      //std::wstring wstr;
+      //while (std::getline(wideFileStream, wstr))
+      //{
+      //   std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt2;
+      //   std::string u8str = cvt2.to_bytes(wstr);
+      //}
+
+
       std::ifstream fileSRT;
+      //auto locUTF8 = std::locale(std::locale(""), new std::codecvt<wchar_t, char, std::mbstate_t>);
+      //fileSRT.imbue(locUTF8);
+
       fileSRT.open(strFilePath);
 
       if (fileSRT.fail())
@@ -158,6 +203,223 @@ void LoadSRTThread(LPVOID lpData)
    pWnd->PostMessageW(WM_MSG_LOAD_FINISHED);
 }
 
+void LoadUTF16SRTThread(LPVOID lpData)
+{
+   CDlgLoadSRTProgress* pWnd = (CDlgLoadSRTProgress*)lpData;
+
+   BOOL bFinished = FALSE;
+
+   while (!pWnd->GetAbortThread() && !bFinished)
+   {
+      CString strFilePath = pWnd->GetFilePath();
+
+      int nState = LOAD_FAILED;
+
+      // Get line count
+      int nLineCount = 0;
+      HRESULT hResult = pWnd->GetSRTFileLineCount(nLineCount);
+
+      if (FAILED(hResult))
+      {
+         pWnd->OpenFileFailed();
+         break;
+      }
+
+      /*FILE* pFile = nullptr;
+      _wfopen_s(&pFile, strFilePath, TEXT("rb"));
+      if (!pFile)
+      {
+         break;
+      }
+
+      fseek(pFile, 0, SEEK_END);
+      long lSize = ftell(pFile);
+      rewind(pFile);
+
+      char* pBuffer = (char*)malloc(sizeof(char) * lSize);
+      if (pBuffer == nullptr)
+      {
+         break;
+      }
+
+      size_t length = fread(pBuffer, 1, lSize, pFile);
+      if (ferror(pFile) != 0 || length != lSize)
+      {
+         break;
+      }
+
+      pBuffer += 2;*/
+
+      /*unsigned short nCurCharacter = 0;
+
+      while (!pWnd->GetAbortThread())
+      {
+         wchar_t nCur = static_cast<unsigned short>(*pBuffer++ << 8);
+         nCur |= *pBuffer;
+
+         ++pBuffer;
+         strCur += nCur;
+
+      }*/
+
+      /*fclose(pFile);
+      free(pBuffer);*/
+
+      nState = LOAD_INITIALIZE;
+
+      CString strTimeInfo = _T("");
+      CString strStratTimeInfo = _T("");
+      CString strEndTimeInfo = _T("");
+      CString strContent = _T("");
+
+      int nCurLine = 0;
+
+      std::ifstream fileSRT;
+      fileSRT.open(strFilePath);
+
+      // 3. begin to read file content
+      std::string strLine;
+      int nOffset = 2;        // the default offset of BOM need to apply to the first line
+      while (std::getline(fileSRT, strLine))
+      {
+         ++nCurLine;
+
+         CString strCurLineInfo = _T("");
+         strCurLineInfo.Format(_T("\r\n ----- current line : %d ------"), nCurLine);
+         OutputDebugString(strCurLineInfo);
+
+         if (pWnd->GetAbortThread())
+         {
+            break;
+         }
+
+         if (nState == LOAD_FAILED)
+         {
+            break;
+         }
+
+         CString strCurLine;
+
+         std::string::iterator iter = strLine.begin() + nOffset;
+
+         while (iter != strLine.end())
+         {
+            unsigned short nCur = static_cast<unsigned short>(*iter++ << 8);
+
+            if (iter == strLine.end())
+            {
+               break;
+            }
+
+            nCur |= *iter;
+
+            wchar_t charCur = static_cast<wchar_t>(nCur);
+            int cBuf = WideCharToMultiByte(CP_UTF8, 0, &charCur, -1, NULL, 0, NULL, NULL);
+            char *buf = new char[cBuf];
+            cBuf = WideCharToMultiByte(CP_UTF8, 0, &charCur, -1, buf, 1024, NULL, NULL);
+
+            strCurLine += static_cast<wchar_t>(nCur);
+            ++iter;
+         }
+
+         OutputDebugString(strCurLine);
+
+         // reset offset
+         nOffset = 0;
+
+         if (strCurLine.IsEmpty())
+         {
+            if (nState == LOAD_CONTENT)
+            {
+               if (!strStratTimeInfo.IsEmpty() && !strEndTimeInfo.IsEmpty() && !strContent.IsEmpty())
+               {
+                  pWnd->AddSRTContentData(strStratTimeInfo, strEndTimeInfo, strContent);
+
+                  strStratTimeInfo.Empty();
+                  strEndTimeInfo.Empty();
+                  strContent.Empty();
+
+                  nState = LOAD_INITIALIZE;
+               }
+            }
+            continue;
+         }
+
+         switch (nState)
+         {
+         case LOAD_INITIALIZE:
+         {
+            nState = LOAD_TIME_INFO;
+         }
+         break;
+         case LOAD_TIME_INFO:
+         {
+            if (FAILED(pWnd->GetContentTimeInfo(strCurLine, strStratTimeInfo, strEndTimeInfo)))
+            {
+               nState = LOAD_FAILED;
+            }
+            else
+            {
+               nState = LOAD_CONTENT;
+            }
+         }
+         break;
+         case LOAD_CONTENT:
+         {
+            if (!strContent.IsEmpty())
+            {
+               strContent += _T("\n");
+            }
+            strContent += strCurLine;
+         }
+         break;
+         default:
+            break;
+         }
+      }
+
+      fileSRT.close();
+      fileSRT.clear();
+
+      if (nState == LOAD_FAILED)
+      {
+         pWnd->LoadFailed();
+      }
+      else
+      {
+         if (!strStratTimeInfo.IsEmpty() && !strEndTimeInfo.IsEmpty() && !strContent.IsEmpty())
+         {
+            pWnd->AddSRTContentData(strStratTimeInfo, strEndTimeInfo, strContent);
+         }
+
+         pWnd->LoadingFile((float)nCurLine / (float)nLineCount);
+
+         pWnd->LoadFinished();
+      }
+
+      bFinished = TRUE;
+   }
+
+
+   pWnd->PostMessageW(WM_MSG_LOAD_FINISHED);
+          
+          //while (true/*pLineBuffe[0] != '\0'*/)
+          //{
+          //   wchar_t nCur = static_cast<unsigned short>(*pLineBuffe++ << 8);
+
+          //   nCur |= *pLineBuffe;
+
+          //   ++pLineBuffe;
+          //   strCur += nCur;
+          //}
+
+
+
+      /*fclose(pFile);
+      free(pBuffer);*/
+
+}
+
 CDlgLoadSRTProgress::CDlgLoadSRTProgress(CWnd* pParent) : CDialogEx(IDD_DIALOG_PROGRESS, pParent)
 {
    m_bAbortThread = FALSE;
@@ -168,6 +430,8 @@ CDlgLoadSRTProgress::CDlgLoadSRTProgress(CWnd* pParent) : CDialogEx(IDD_DIALOG_P
    m_strDescription = _T("Initializing...");
 
    m_fProgress = 0.f;
+
+   m_nEncodeType = static_cast<int>(ENCODE_DEFAULT);
 
    m_pFont = new CFont();
    m_pFont->CreateFont(14,//   nHeight   
@@ -206,6 +470,8 @@ END_MESSAGE_MAP()
 
 BOOL CDlgLoadSRTProgress::OnInitDialog()
 {
+   StartThread();
+ 
    CDialogEx::OnInitDialog();
 
    return TRUE;
@@ -293,11 +559,118 @@ LRESULT CDlgLoadSRTProgress::OnLoadFinished(WPARAM wParam, LPARAM lParam)
    return LRESULT();
 }
 
-void CDlgLoadSRTProgress::SetFilePath(CString strFilePath)
+HRESULT CDlgLoadSRTProgress::PreLoadFile(CString strFilePath)
 {
+   //1. check file is valid
+   if (strFilePath.IsEmpty() || !PathFileExists(strFilePath))
+   {
+      return E_FAIL;
+   }
+
+   // 2. try to get the encode info from the file
+   FILE* pFile = nullptr;
+   _wfopen_s(&pFile, strFilePath, TEXT("rb"));
+   if (!pFile)
+   {
+      return E_FAIL;
+   }
+
+   fseek(pFile, 0, SEEK_END);
+   long lSize = ftell(pFile);
+   rewind(pFile);
+
+   char* pBuffer = (char*)malloc(sizeof(char) * lSize);
+   if (pBuffer == nullptr)
+   {
+      return E_FAIL;
+   }
+
+   size_t length = fread(pBuffer, 1, lSize, pFile);
+   if (ferror(pFile) != 0 || length != lSize)
+   {
+      return E_FAIL;
+   }
+
+   if (length > 2)
+   {
+      switch (pBuffer[0])
+      {
+      case '\xEF':
+         if (('\xBB' == pBuffer[1]) && ('\xBF' == pBuffer[2]))
+         {
+            m_nEncodeType = ENCODE_UTF8_BOM;
+         }
+         break;
+      case '\xFE':
+         if ('\xFF' == pBuffer[1])
+         {
+            m_nEncodeType = ENCODE_UTF16_BE_BOM;
+         }
+         break;
+      case '\xFF':
+         if ('\xFE' == pBuffer[1])
+         {
+            m_nEncodeType = ENCODE_UTF16_LE_BOM;
+         }
+         break;
+      default:
+         break;
+      }
+   }
+
+   fclose(pFile);
+   free(pBuffer);
+
    m_strFilePath = strFilePath;
 
-   StartThread();
+   return S_OK;
+}
+
+void CDlgLoadSRTProgress::DecodeUTF8()
+{
+   std::fstream fileStream;
+   fileStream.open(m_strFilePath, std::ios::in | std::ios::binary);
+
+   std::wbuffer_convert<std::codecvt_utf8<wchar_t, 0x10ffff, std::little_endian>> convert(fileStream.rdbuf());
+
+   std::wistream wideFileStream(&convert);
+   std::wstring wstr;
+   while (std::getline(wideFileStream, wstr))
+   {
+      std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt2;
+      std::string u8str = cvt2.to_bytes(wstr);
+   }
+}
+
+void CDlgLoadSRTProgress::DecodeUTF8BOM()
+{
+   std::fstream fileStream;
+   fileStream.open(m_strFilePath, std::ios::in | std::ios::binary);
+
+   std::wbuffer_convert<std::codecvt_utf8<wchar_t, 0x10ffff, std::generate_header>> convert(fileStream.rdbuf());
+
+   std::wistream wideFileStream(&convert);
+   std::wstring wstr;
+   while (std::getline(wideFileStream, wstr))
+   {
+      std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt2;
+      std::string u8str = cvt2.to_bytes(wstr);
+   }
+}
+
+void CDlgLoadSRTProgress::DecodeUTF16BE()
+{
+
+}
+
+void CDlgLoadSRTProgress::DecodeUTF16LE()
+{
+
+}
+
+void CDlgLoadSRTProgress::DecodeFile()
+{
+
 }
 
 HRESULT CDlgLoadSRTProgress::GetSRTFileLineCount(int & nLineCount)
@@ -408,13 +781,13 @@ HRESULT CDlgLoadSRTProgress::GetTimeInfo(const char * pszUTF8, CString & strStar
 
    if (strTimeInfo.IsEmpty())
    {
-      return S_FALSE;
+      return E_FAIL;
    }
 
    int nPos = strTimeInfo.Find(_T("-->"));
    if (nPos < 0)
    {
-      return S_FALSE;
+      return E_FAIL;
    }
 
    strStartTime = strTimeInfo.Left(nPos);
@@ -422,7 +795,7 @@ HRESULT CDlgLoadSRTProgress::GetTimeInfo(const char * pszUTF8, CString & strStar
 
    if (strStartTime.IsEmpty())
    {
-      return S_FALSE;
+      return E_FAIL;
    }
 
    nPos += 3;
@@ -430,7 +803,7 @@ HRESULT CDlgLoadSRTProgress::GetTimeInfo(const char * pszUTF8, CString & strStar
 
    if (nLength <= 0)
    {
-      return S_FALSE;
+      return E_FAIL;
    }
 
    strEndTime = strTimeInfo.Mid(nPos, nLength);
@@ -438,7 +811,47 @@ HRESULT CDlgLoadSRTProgress::GetTimeInfo(const char * pszUTF8, CString & strStar
 
    if (strEndTime.IsEmpty())
    {
-      return S_FALSE;
+      return E_FAIL;
+   }
+
+   return S_OK;
+}
+
+HRESULT CDlgLoadSRTProgress::GetContentTimeInfo(CString const & strTimeInfo, CString & strStartTime, CString & strEndTime)
+{
+   if (strTimeInfo.IsEmpty())
+   {
+      return E_FAIL;
+   }
+
+   int nPos = strTimeInfo.Find(_T("-->"));
+   if (nPos < 0)
+   {
+      return E_FAIL;
+   }
+
+   strStartTime = strTimeInfo.Left(nPos);
+   strStartTime.Trim();
+
+   if (strStartTime.IsEmpty())
+   {
+      return E_FAIL;
+   }
+
+   nPos += 3;
+   int nLength = strTimeInfo.GetLength() - nPos;
+
+   if (nLength <= 0)
+   {
+      return E_FAIL;
+   }
+
+   strEndTime = strTimeInfo.Mid(nPos, nLength);
+   strEndTime.Trim();
+
+   if (strEndTime.IsEmpty())
+   {
+      return E_FAIL;
    }
 
    return S_OK;
@@ -449,6 +862,11 @@ void CDlgLoadSRTProgress::AddSRTData(CString strStartTime, CString strEndTime, s
    CSRTDataManager::GetInstance()->AddSRTData(strStartTime, strEndTime, content);
 }
 
+void CDlgLoadSRTProgress::AddSRTContentData(CString strStartTime, CString strEndTime, CString strContent)
+{
+   CSRTContentManager::GetInstance()->AddSRTContentData(strStartTime, strEndTime, strContent);
+}
+
 void CDlgLoadSRTProgress::StartThread()
 {
    if (m_pThread != nullptr)
@@ -456,7 +874,14 @@ void CDlgLoadSRTProgress::StartThread()
       return;
    }
 
-   m_pThread = std::make_unique<std::thread>(LoadSRTThread, (LPVOID)this);
+   if (m_nEncodeType == ENCODE_DEFAULT || m_nEncodeType == ENCODE_UTF8_BOM)
+   {
+      m_pThread = std::make_unique<std::thread>(LoadSRTThread, (LPVOID)this);
+   }
+   else
+   {
+      m_pThread = std::make_unique<std::thread>(LoadUTF16SRTThread, (LPVOID)this);
+   }
 }
 
 void CDlgLoadSRTProgress::AbortThread()

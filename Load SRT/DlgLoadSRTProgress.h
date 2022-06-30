@@ -23,6 +23,14 @@ enum LOADING_STATUS
    LOADING_SUCEESS
 };
 
+enum ENCODE_TYPE
+{
+   ENCODE_DEFAULT,
+   ENCODE_UTF8_BOM,
+   ENCODE_UTF16_BE_BOM,
+   ENCODE_UTF16_LE_BOM
+};
+
 class CDlgLoadSRTProgress : public CDialogEx
 {
    DECLARE_DYNAMIC(CDlgLoadSRTProgress)
@@ -47,7 +55,15 @@ protected:
    LRESULT OnLoadFinished(WPARAM wParam, LPARAM lParam);
 
 public:
-   void SetFilePath(CString strFilePath);
+   HRESULT PreLoadFile(CString strFilePath);
+
+   void DecodeUTF8();
+   void DecodeUTF8BOM();
+   void DecodeUTF16BE();
+   void DecodeUTF16LE();
+
+   void DecodeFile();
+
    CString GetFilePath() { return m_strFilePath; };
 
    void SetAbortThread(BOOL bAbort) { m_bAbortThread = bAbort; };
@@ -67,7 +83,11 @@ public:
 
    HRESULT GetTimeInfo(const char* pszUTF8, CString& strStartTime, CString& strEndTime);
 
+   HRESULT GetContentTimeInfo(CString const& strTimeInfo, CString& strStartTime, CString& strEndTime);
+
    void AddSRTData(CString strStartTime, CString strEndTime, std::string content);
+
+   void AddSRTContentData(CString strStartTime, CString strEndTime, CString strContent);
 
 private:
    void StartThread();
@@ -85,5 +105,7 @@ private:
    float                            m_fProgress;
 
    CFont*                           m_pFont;
+
+   int m_nEncodeType;
 
 };

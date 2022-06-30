@@ -21,6 +21,8 @@ public:
 public:
    void ShowSRTData(CSRTDataManager::SRTData const& data);
 
+   void ShowSRTData(CString strStartTime, CString strEndTime, CString strContent);
+
 private:
    HRESULT CreateDeviceIndependentResources();
    HRESULT CreateDeviceResources();

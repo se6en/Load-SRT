@@ -8,6 +8,7 @@
 #include "afxdialogex.h"
 #include "DlgLoadSRTProgress.h"
 #include "SRTDataManager.h"
+#include "SRTContentManager.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -154,14 +155,17 @@ void CLoadSRTDlg::OnBnClickedButtonLoadSrtFile()
    }
 
    CDlgLoadSRTProgress dlgProgress;
-   dlgProgress.SetFilePath(strFilePath);
+   if (FAILED(dlgProgress.PreLoadFile(strFilePath)))
+   {
+      return;
+   }
 
    if (dlgProgress.DoModal() != IDOK)
    {
       return;
    }
 
-   CSRTDataManager::SRTData data;
+   /*CSRTDataManager::SRTData data;
    data.startTime = CSRTDataManager::GetInstance()->GetSRTDataStartTime(0.f);
    data.endTime = CSRTDataManager::GetInstance()->GetSRTDataEndTime(0.f);
    data.content = CSRTDataManager::GetInstance()->GetSRTDataContent(0.f);
@@ -170,7 +174,10 @@ void CLoadSRTDlg::OnBnClickedButtonLoadSrtFile()
    CSRTDataManager::GetInstance()->GetSRTDataUnderlineInfo(0.f, data.vecUnderlineInfo);
    CSRTDataManager::GetInstance()->GetSRTDataColorInfo(0.f, data.vecColorInfo);
 
-   m_staticDrawSRT.ShowSRTData(data);
+   m_staticDrawSRT.ShowSRTData(data);*/
+   CString strStartTime, strEndTime, strContent;
+   std::tie(strStartTime, strEndTime, strContent) = CSRTContentManager::GetInstance()->GetSRTContentData(0.f);
+   m_staticDrawSRT.ShowSRTData(strStartTime, strEndTime, strContent);
 }
 
 void CLoadSRTDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
@@ -182,7 +189,7 @@ void CLoadSRTDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 
    float fCurPos = static_cast<float>(m_sliderProgress.GetPos()) / 100.f;
 
-   CSRTDataManager::SRTData data;
+  /* CSRTDataManager::SRTData data;
    data.startTime = CSRTDataManager::GetInstance()->GetSRTDataStartTime(fCurPos);
    data.endTime = CSRTDataManager::GetInstance()->GetSRTDataEndTime(fCurPos);
    data.content = CSRTDataManager::GetInstance()->GetSRTDataContent(fCurPos);
@@ -191,5 +198,8 @@ void CLoadSRTDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
    CSRTDataManager::GetInstance()->GetSRTDataUnderlineInfo(fCurPos, data.vecUnderlineInfo);
    CSRTDataManager::GetInstance()->GetSRTDataColorInfo(fCurPos, data.vecColorInfo);
 
-   m_staticDrawSRT.ShowSRTData(data);
+   m_staticDrawSRT.ShowSRTData(data);*/
+   CString strStartTime, strEndTime, strContent;
+   std::tie(strStartTime, strEndTime, strContent) = CSRTContentManager::GetInstance()->GetSRTContentData(fCurPos);
+   m_staticDrawSRT.ShowSRTData(strStartTime, strEndTime, strContent);
 }

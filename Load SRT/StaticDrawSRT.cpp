@@ -148,6 +148,66 @@ void CStaticDrawSRT::PreSubclassWindow()
    CStatic::PreSubclassWindow();
 }
 
+void CStaticDrawSRT::ShowSRTData(CString strStartTime, CString strEndTime, CString strContent)
+{
+   if (m_pDWriteFactory == nullptr)
+   {
+      return;
+   }
+
+   CRect rcClient;
+   GetClientRect(rcClient);
+
+   if (rcClient.IsRectEmpty())
+   {
+      return;
+   }
+
+   CString strData = strStartTime + _T("\n");
+   strData += strEndTime;
+   strData += _T("\n");
+   strData += strContent;
+
+   ComPtr<IDWriteTextFormat> pD2DTextFormat = nullptr;
+   HRESULT hr = m_pDWriteFactory->CreateTextFormat(
+      _T("Arial"),
+      NULL,
+      DWRITE_FONT_WEIGHT_NORMAL,
+      DWRITE_FONT_STYLE_NORMAL,
+      DWRITE_FONT_STRETCH_NORMAL,
+      50.F,
+      L"",
+      &pD2DTextFormat
+   );
+
+   if (FAILED(hr))
+   {
+      return;
+   }
+
+   pD2DTextFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_EMERGENCY_BREAK);
+   pD2DTextFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_FAR);
+
+   hr = m_pDWriteFactory->CreateTextLayout(
+      strData,
+      strData.GetLength(),
+      pD2DTextFormat.Get(),
+      (FLOAT)rcClient.Width(),
+      (FLOAT)rcClient.Height(),
+      &m_pTextLayout
+   );
+
+   if (FAILED(hr))
+   {
+      return;
+   }
+
+   m_pTextLayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+
+   Invalidate();
+   UpdateWindow();
+}
+
 void CStaticDrawSRT::ShowSRTData(CSRTDataManager::SRTData const& data)
 {
    if (m_pDWriteFactory == nullptr)
