@@ -4,7 +4,7 @@ Implement the function of parse format information from subtitle file. Including
 Color tag may be hex value string, color name string or color rgb value string, also support to convert them to C++ format color value COLORREF.
 These format will be applied while drawing the content.
 
-Known issue: Does not support Unicode string yet.
+Known issue: Only support file encoded with UTF8 yet.
 
 # 4/22/2021
 Load SubRip Subtitle File (.srt) without format information.
