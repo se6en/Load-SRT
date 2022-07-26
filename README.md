@@ -1,4 +1,7 @@
 # Load-SRT
+# 7/26/2022
+Update the method of extracting format infomation from the caption files. Now we will split the content into lines first, then we just extcat the infomation line by line. This is the behavior I decided to make after I checked Premiere Pro. I also add a way to export caption as .txt file. Only content will be exported without the time information.
+
 # 6/30/2022
 Implement loading SRT files encoded with ANSI, UTF-8, UTF-8-BOM, UTF-16 BE BOM and UTF-16 LE BOM. Currently the application will preload the file to distinguish the encoder of the file at first. Then it will use <i>std::wbuffer_convert</i> to covert the file stream and read each line in the file.
 
