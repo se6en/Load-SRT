@@ -18,22 +18,7 @@ static const std::wregex underlineTag(L"<u>(.*)</u>");
 
 static constexpr auto COLOR_TAG_SUFFIX = _T("</font>");
 static const std::wregex ColorTag(L"<font color=(.*)>(.*)</font>");
-
-int ConvertUnicodeToUTF8CString(const wchar_t* pszUnicode, CStringA& strUTF8)
-{
-   // determine the size of buffer required then allocate it
-   int nStrLen = WideCharToMultiByte(CP_UTF8, 0, pszUnicode, -1, NULL, 0, NULL, NULL);
-   if (nStrLen == 0)
-   {
-      return 0;
-   }
-
-   // do the conversion
-   int nRet = WideCharToMultiByte(CP_UTF8, 0, pszUnicode, -1, strUTF8.GetBuffer(nStrLen), nStrLen, NULL, NULL);
-   strUTF8.ReleaseBuffer();
-
-   return nRet;
-}
+static const std::wregex ColorPreTag(L"<font color=(.*)>");
 
 CString ConvertStringToUnicodeCString(const char * pszUTF8)
 {
@@ -48,6 +33,22 @@ CString ConvertStringToUnicodeCString(const char * pszUTF8)
    strConvert.ReleaseBuffer();
 
    return strConvert;
+}
+
+void SplitString(CString const& strSource, CStringArray& strDest, CString const strTarget)
+{
+   strDest.RemoveAll();
+   CString strContent = strSource;
+   int nPosition = strContent.Find(strTarget);
+   while (nPosition > 0)
+   {
+      strDest.Add(strContent.Left(nPosition));
+      
+      strContent = strContent.Right(strContent.GetLength() - nPosition - strTarget.GetLength());
+      nPosition = strContent.Find(strTarget);
+   }
+
+   strDest.Add(strContent);
 }
 
 struct NamedColor { CString name; const COLORREF color; };
@@ -210,6 +211,31 @@ int ClampValue(T value)
    return value < 0 ? 0 : value > 255 ? 255 : static_cast<int>(value);
 }
 
+BOOL IsValidHexString(std::wstring const wHexString)
+{
+   for (size_t i = 0; i < wHexString.size(); i++)
+   {
+      if (wHexString[i] >= '0' && wHexString[i] <= '9')
+      {
+         continue;
+      }
+
+      if (wHexString[i] >= 'a' && wHexString[i] <= 'f')
+      {
+         continue;
+      }
+
+      if (wHexString[i] >= 'A' && wHexString[i] <= 'F')
+      {
+         continue;
+      }
+
+      return FALSE;
+   }
+
+   return TRUE;
+}
+
 HRESULT GetColorFromHex(CString const& strContent, COLORREF& color)
 {
    if (strContent.GetAt(0) != L'#')
@@ -219,6 +245,12 @@ HRESULT GetColorFromHex(CString const& strContent, COLORREF& color)
 
    std::wstring wsContent = strContent.GetString();
    std::wstring hexColor = wsContent.substr(1, 6);
+
+   if (!IsValidHexString(hexColor))
+   {
+      return E_FAIL;
+   }
+
    int64_t hexValue = wcstol(hexColor.c_str(), nullptr, 16);
    if (hexValue < 0 || hexValue > 0xffffff)
    {
@@ -349,7 +381,8 @@ CString CSRTDataManager::RemoveTag(RemoveTagParams params)
       int nLength = params.strPreTag.GetLength();
       strContent.Delete(nPos, nLength);
 
-      nPos = strContent.Find(params.strSufTag);
+      nPos = strContent.Find(params.strSufTag, nPos);
+      ASSERT(nPos > 0);
       nLength = params.strSufTag.GetLength();
       strContent.Delete(nPos, nLength);
 
@@ -394,30 +427,74 @@ CString CSRTDataManager::RemoveUnderlineTag(CString const& strContent)
    return RemoveTag(params);
 }
 
-CString CSRTDataManager::RmoveColorTag(CString const& strContent)
+CString CSRTDataManager::RemoveColorPrefixTag(CString const& content)
 {
+   CString strContent = content;
+   std::wstring colorcontent(strContent.GetString());
+
+   std::wsmatch result;
+   if (std::regex_search(colorcontent, result, ColorPreTag))
+   {
+      int nPosition = static_cast<int>(result.position());
+
+      int nPrefixTagEnd = strContent.Find(_T(">"), nPosition);
+      ASSERT(nPrefixTagEnd > nPosition);
+
+      int nTagLength = nPrefixTagEnd - nPosition + 1;
+      strContent.Delete(nPosition, nTagLength);
+
+      strContent = RemoveColorPrefixTag(strContent);
+   }
+
+   return strContent;
+}
+
+CString CSRTDataManager::RemoveColorSuffixTag(CString const& content)
+{
+   CString strContent = content;
+
+   int nPosition = content.Find(COLOR_TAG_SUFFIX);
+   if (nPosition < 0)
+   {
+      return strContent;
+   }
+
+   CString strTag = COLOR_TAG_SUFFIX;
+   int nTagLength = strTag.GetLength();
+
+   strContent.Delete(nPosition, nTagLength);
+
+   strContent = RemoveColorSuffixTag(strContent);
+
+   return strContent;
+}
+
+CString CSRTDataManager::RemoveColorTag(CString const& strContent)
+{
+   // according to the behavior in Premiere Pro, we need to remove all the color tag even their are not paired
    CString content = strContent;
 
    std::wstring wsContent(strContent.GetString());
 
    std::wsmatch result;
-   if (std::regex_search(wsContent, result, ColorTag))
+   if (!std::regex_search(wsContent, result, ColorTag))
    {
-      int nPosition = static_cast<int>(result.position());
-      ASSERT(result.size() > 1);
-      std::wstring colortag = result[1];
-      size_t colorTagSize = colortag.length();
-
-      int nStart = static_cast<int>(nPosition);
-      int nLength = static_cast<int>(colorTagSize);
-      content.Delete(nPosition, nLength + 13); // add extra length for <font color=>
-
-      nPosition = content.Find(COLOR_TAG_SUFFIX);
-      int nEndIndex = static_cast<int>(nPosition - 1);
-      content.Delete(nPosition, 7); // strength of </font>
-
-      content = RmoveColorTag(content);
+      // no need to do this if no paired color info exist
+      return content;
    }
+
+   CString strPrefixContent = result.prefix().matched ? result.prefix().str().c_str() : _T("");
+   CString strSuffixContent = result.suffix().matched ? result.suffix().str().c_str() : _T("");
+
+   std::wssub_match sub_match = result[0];
+   std::wstring stb_string = sub_match.str();
+
+   CString strMatchContent(stb_string.c_str());
+   strMatchContent = RemoveColorPrefixTag(strMatchContent);
+   strMatchContent = RemoveColorSuffixTag(strMatchContent);
+
+   content = strPrefixContent + strMatchContent;
+   content = content + strSuffixContent;
 
    return content;
 }
@@ -455,7 +532,7 @@ void CSRTDataManager::ParseBoldInfo(CString const& strContent, std::vector<std::
 
    strBold = RemoveItalicTag(strBold);
    strBold = RemoveUnderlineTag(strBold);
-   strBold = RmoveColorTag(strBold);
+   strBold = RemoveColorTag(strBold);
 
    ExtractInfoParams params;
    params.content = strBold;
@@ -489,7 +566,7 @@ void CSRTDataManager::ParseItalicInfo(CString const& strContent, std::vector<std
 
    strItalic = RemoveBoldTag(strItalic);
    strItalic = RemoveUnderlineTag(strItalic);
-   strItalic = RmoveColorTag(strItalic);
+   strItalic = RemoveColorTag(strItalic);
 
    ExtractInfoParams params;
    params.content = strItalic;
@@ -506,7 +583,7 @@ void CSRTDataManager::ParseUnderlineInfo(CString const& strContent, std::vector<
 
    strUnderline = RemoveBoldTag(strUnderline);
    strUnderline = RemoveItalicTag(strUnderline);
-   strUnderline = RmoveColorTag(strUnderline);
+   strUnderline = RemoveColorTag(strUnderline);
 
    ExtractInfoParams params;
    params.content = strUnderline;
@@ -517,7 +594,7 @@ void CSRTDataManager::ParseUnderlineInfo(CString const& strContent, std::vector<
    ExtractInfo(params, vecRestlt);
 }
 
-void CSRTDataManager::ExtractColorInfo(CString const& strContent, std::vector<ColorInfo>& vecRestlt)
+BOOL CSRTDataManager::ColorInfoTagExist(CString const& strContent)
 {
    CString strCurContent = strContent;
 
@@ -526,10 +603,117 @@ void CSRTDataManager::ExtractColorInfo(CString const& strContent, std::vector<Co
    std::wsmatch result;
    if (std::regex_search(content, result, ColorTag))
    {
+      return TRUE;
+   }
+
+   return FALSE;
+}
+
+int CSRTDataManager::ExtractColorTagInfoEndIndex(CString& strContent, int nStartIndex)
+{
+   int nPosition = strContent.Find(COLOR_TAG_SUFFIX, nStartIndex);
+   CString strSuffixTag = COLOR_TAG_SUFFIX;
+
+   CString strCurContent = strContent;
+
+   std::wstring content(strCurContent.GetString());
+
+   std::wsmatch result;
+   if (!std::regex_search(content, result, ColorPreTag))
+   {
+      // no more color tag found and the position if the first suffix tag
+      // no color tag need to be removed
+      if (nPosition < 0)
+      {
+         return strContent.GetLength();
+      }
+
+      strContent.Delete(nPosition, strSuffixTag.GetLength());
+      return nPosition;
+   }
+
+   int nPreTagPosition = static_cast<int>(result.position());
+
+   if (nPosition < 0)
+   {
+      return nPreTagPosition;
+   }
+
+   if (nPosition < nPreTagPosition)
+   {
+      strContent.Delete(nPosition, strSuffixTag.GetLength());
+      return nPosition;
+   }
+
+   return nPreTagPosition;
+}
+
+void CSRTDataManager::ExtractColorTagInfo(CString const& strContent, std::vector<colorTagInfo>& vecRestlt)
+{
+   // all we need to do is to focusing on the pre tag
+   CString strCurContent = strContent;
+   std::wstring content(strCurContent.GetString());
+
+   std::wsmatch result;
+   if (std::regex_search(content, result, ColorTag))
+   {
+      // 1. remove the extra useless suffix tag to get correct index
+      int nIndexOffset = 0;
+      if (result.prefix().matched)
+      {
+         CString strPrefixContent = result.prefix().str().c_str();
+         CString strTrimmedContent = RemoveColorSuffixTag(strPrefixContent);
+
+         nIndexOffset = strPrefixContent.GetLength() - strTrimmedContent.GetLength();
+      }
+
       int nPosition = static_cast<int>(result.position());
-      ASSERT(result.size() > 1);
-      std::wstring colortag = result[1];
-      size_t colorTagSize = colortag.length();
+
+      int nPrefixTagEnd = strCurContent.Find(_T(">"), nPosition);
+      ASSERT(nPrefixTagEnd > nPosition);
+
+      CString strPrefixColorTag = strCurContent.Left(nPrefixTagEnd);
+      int nTagLength = strPrefixColorTag.GetLength();
+      strPrefixColorTag = strPrefixColorTag.Right(nTagLength - nPosition - 1);
+
+      CString strColorTag = strPrefixColorTag;
+      strColorTag.Delete(0, 11);  // remove "font color="
+
+      strCurContent.Delete(nPosition, nPrefixTagEnd - nPosition + 1); // 2 stand for "<" and ">"
+
+      int nEndIndex = ExtractColorTagInfoEndIndex(strCurContent, nPosition) - 1;
+
+      vecRestlt.emplace_back(strColorTag, nPosition - nIndexOffset, nEndIndex - nIndexOffset);
+
+      ExtractColorTagInfo(strCurContent, vecRestlt);
+   }
+}
+
+void CSRTDataManager::ExtractColorInfo(CString const& strContent, std::vector<CSRTData::ColorInfo>& vecRestlt)
+{
+   CString strCurContent = strContent;
+
+   std::wstring content(strCurContent.GetString());
+
+   std::wsmatch result;
+   if (!std::regex_search(content, result, ColorTag))
+   {
+      return;
+   }
+
+   // 1. extract color tag info
+   std::vector<colorTagInfo> vecColorTagInfo;
+   ExtractColorTagInfo(strCurContent, vecColorTagInfo);
+
+   if (vecColorTagInfo.empty())
+   {
+      return;
+   }
+
+   // 2. convert color tag info to color info
+   for (auto tagInfo : vecColorTagInfo)
+   {
+      std::wstring colortag(tagInfo.tag.GetString());
 
       std::transform(colortag.begin(), colortag.end(), colortag.begin(),
          [](auto c) {return std::tolower(c); });
@@ -539,36 +723,27 @@ void CSRTDataManager::ExtractColorInfo(CString const& strContent, std::vector<Co
       if (FAILED(GetColor(colortag.c_str(), color)))
       {
          OutputDebugString(_T("\r\n ----- Failed to extract color info ----- \r\n"));
+         continue;
       }
-
-      int nStart = nPosition;
-      int nLength = static_cast<int>(colorTagSize);
-      strCurContent.Delete(nPosition, nLength + 13); // add extra length for <font color=>
-
-      nPosition = strCurContent.Find(COLOR_TAG_SUFFIX);
-      int nEndIndex = nPosition - 1;
-      strCurContent.Delete(nPosition, 7); // strength of </font>
 
       auto colorItem = std::find_if(vecRestlt.begin(), vecRestlt.end(),
          [color](auto& item) {return item.color == color; });
 
       if (colorItem != vecRestlt.end())
       {
-         (*colorItem).vecIndex.emplace_back(std::make_pair(static_cast<int>(nStart), static_cast<int>(nEndIndex)));
+         (*colorItem).vecIndex.emplace_back(std::make_pair(tagInfo.start, tagInfo.end));
       }
       else
       {
-         ColorInfo info;
+         CSRTData::ColorInfo info;
          info.color = color;
-         info.vecIndex.emplace_back(std::make_pair(static_cast<int>(nStart), static_cast<int>(nEndIndex)));
+         info.vecIndex.emplace_back(std::make_pair(tagInfo.start, tagInfo.end));
          vecRestlt.emplace_back(info);
       }
-
-      ExtractColorInfo(strCurContent, vecRestlt);
    }
 }
 
-void CSRTDataManager::ParseColorInfo(CString const& content, std::vector<ColorInfo>& vecRestlt)
+void CSRTDataManager::ParseColorInfo(CString const& content, std::vector<CSRTData::ColorInfo>& vecRestlt)
 {
    CString strColor = content;
 
@@ -577,35 +752,161 @@ void CSRTDataManager::ParseColorInfo(CString const& content, std::vector<ColorIn
    strColor = RemoveUnderlineTag(strColor);
 
    ExtractColorInfo(strColor, vecRestlt);
-   
+
 }
 
 void CSRTDataManager::AddSRTData(CString strStartTime, CString strEndTime, CString strContent)
 {
-   SRTData data;
-   data.startTime = strStartTime;
-   data.endTime = strEndTime;
+   std::shared_ptr<CSRTData> pData = std::make_shared<CSRTData>();
 
-   // remove tags from content
-   CString strRealcontent = strContent;
-   strRealcontent = RemoveBoldTag(strRealcontent);
-   strRealcontent = RemoveItalicTag(strRealcontent);
-   strRealcontent = RemoveUnderlineTag(strRealcontent);
-   strRealcontent = RmoveColorTag(strRealcontent);
+   pData->SetStartTime(strStartTime);
+   pData->SetEndTime(strEndTime);
 
-   data.content = strRealcontent;
+   if (strContent.IsEmpty())
+   {
+      pData->SetContent(strContent);
+      return;
+   }
 
-   ParseBoldInfo(strContent, data.vecBoldInfo);
+   CStringArray strContentArray;
+   SplitString(strContent, strContentArray, _T("\n"));
 
-   ParseItalicInfo(strContent, data.vecItalicInfo);
+   // need to seperate content to lines to extract info
+   CString strRealcontent;
+   std::vector<std::pair<int, int>> vecBoldInfo, vecItalicInfo, vecUnderlineInfo;
+   std::vector<CSRTData::ColorInfo> vecColorInfo;
+   int nIndexOffset = 0;
+   for (int i = 0; i < strContentArray.GetSize(); i++)
+   {
+      // 1. extract content
+      CString strContent = strContentArray[i];
 
-   ParseUnderlineInfo(strContent, data.vecUnderlineInfo);
+      strContent = RemoveBoldTag(strContent);
+      strContent = RemoveItalicTag(strContent);
+      strContent = RemoveUnderlineTag(strContent);
+      strContent = RemoveColorTag(strContent);
 
-   ParseColorInfo(strContent, data.vecColorInfo);
+      if (!strRealcontent.IsEmpty())
+      {
+         strRealcontent += _T("\n");
+      }
+
+      strRealcontent += strContent;
+
+      // 2. extract format info
+      CString strLine = strContentArray[i];
+
+      // Bold Info
+      std::vector<std::pair<int, int>> vecCurBoldInfo;
+      ParseBoldInfo(strLine, vecCurBoldInfo);
+
+      for (auto pBoldInfo : vecCurBoldInfo)
+      {
+         vecBoldInfo.emplace_back(std::make_pair(pBoldInfo.first + nIndexOffset, pBoldInfo.second + nIndexOffset));
+      }
+      
+      // Italic Info
+      std::vector<std::pair<int, int>> vecCurItalicInfo;
+      ParseItalicInfo(strLine, vecCurItalicInfo);
+
+      for (auto pItalicInfo : vecCurItalicInfo)
+      {
+         vecItalicInfo.emplace_back(std::make_pair(pItalicInfo.first + nIndexOffset, pItalicInfo.second + nIndexOffset));
+      }
+
+      // Underline Info
+      std::vector<std::pair<int, int>> vecCurUnderlineInfo;
+      ParseUnderlineInfo(strLine, vecCurUnderlineInfo);
+
+      for (auto pUnderlineInfo : vecCurUnderlineInfo)
+      {
+         vecUnderlineInfo.emplace_back(std::make_pair(pUnderlineInfo.first + nIndexOffset, pUnderlineInfo.second + nIndexOffset));
+      }
+
+      // Color Info
+      std::vector<CSRTData::ColorInfo> vecCurColorInfo;
+      ParseColorInfo(strLine, vecCurColorInfo);
+
+      for (auto pColorInfo : vecCurColorInfo)
+      {
+         auto colorItem = std::find_if(vecColorInfo.begin(), vecColorInfo.end(),
+            [pColorInfo](auto& item) {return item.color == pColorInfo.color; });
+
+         if (colorItem != vecColorInfo.end())
+         {
+            for (auto pIndex : pColorInfo.vecIndex)
+            {
+               (*colorItem).vecIndex.emplace_back(pIndex.first + nIndexOffset, pIndex.second + nIndexOffset);
+            }
+         }
+         else
+         {
+            CSRTData::ColorInfo info;
+            info.color = pColorInfo.color;
+            for (auto pIndex : pColorInfo.vecIndex)
+            {
+               info.vecIndex.emplace_back(pIndex.first + nIndexOffset, pIndex.second + nIndexOffset);
+            }
+            vecColorInfo.emplace_back(info);
+         }
+      }
+
+      nIndexOffset = strRealcontent.GetLength() + 1;
+   }
+
+   pData->SetContent(strRealcontent);
+
+   pData->SetBoldInfo(vecBoldInfo);
+
+   pData->SetItalicInfo(vecItalicInfo);
+
+   pData->SetUnderlineInfo(vecUnderlineInfo);
+
+   pData->SetColorInfo(vecColorInfo);
 
    std::lock_guard<std::mutex> lock(m_mutexSRTData);
 
-   m_vecSRTData.emplace_back(data);
+   m_vecSRTData.emplace_back(pData);
+}
+
+BOOL CSRTDataManager::HasValidData() const
+{
+   return !m_vecSRTData.empty();
+}
+
+int CSRTDataManager::GetSRTDataCount()
+{
+   return static_cast<int>(m_vecSRTData.size());
+}
+
+CString CSRTDataManager::GetUnstyledContent(int nIndex)
+{
+   if (nIndex < 0 || nIndex >= GetSRTDataCount())
+   {
+      return CString();
+   }
+
+   return m_vecSRTData[nIndex]->GetUnstyledContent();
+}
+
+CString CSRTDataManager::GetTime(int nIndex)
+{
+   if (nIndex < 0 || nIndex >= GetSRTDataCount())
+   {
+      return CString();
+   }
+
+   return m_vecSRTData[nIndex]->GetFormatTime();
+}
+
+CString CSRTDataManager::GetStyledContent(int nIndex)
+{
+   if (nIndex < 0 || nIndex >= GetSRTDataCount())
+   {
+      return CString();
+   }
+
+   return m_vecSRTData[nIndex]->GetStyledContent();
 }
 
 size_t CSRTDataManager::GetRelatedIndex(float fProgress)
@@ -623,7 +924,7 @@ CString CSRTDataManager::GetSRTDataStartTime(float fProgress)
 
    size_t index = GetRelatedIndex(fProgress);
 
-   return m_vecSRTData[index].startTime;
+   return m_vecSRTData[index]->GetStartTime();
 }
 
 CString CSRTDataManager::GetSRTDataEndTime(float fProgress)
@@ -632,7 +933,7 @@ CString CSRTDataManager::GetSRTDataEndTime(float fProgress)
 
    size_t index = GetRelatedIndex(fProgress);
 
-   return m_vecSRTData[index].endTime;
+   return m_vecSRTData[index]->GetEndTime();
 }
 
 CString CSRTDataManager::GetSRTDataContent(float fProgress)
@@ -641,7 +942,7 @@ CString CSRTDataManager::GetSRTDataContent(float fProgress)
 
    size_t index = GetRelatedIndex(fProgress);
 
-   return m_vecSRTData[index].content;
+   return m_vecSRTData[index]->GetUnstyledContent();
 }
 
 void CSRTDataManager::GetSRTDataBoldInfo(float fProgress, std::vector<std::pair<int, int>>& vecBold)
@@ -652,7 +953,7 @@ void CSRTDataManager::GetSRTDataBoldInfo(float fProgress, std::vector<std::pair<
 
    size_t index = GetRelatedIndex(fProgress);
 
-   vecBold.insert(vecBold.end(), m_vecSRTData[index].vecBoldInfo.begin(), m_vecSRTData[index].vecBoldInfo.end());
+   m_vecSRTData[index]->GetBoldInfo(vecBold);
 }
 
 void CSRTDataManager::GetSRTDataItalicInfo(float fProgress, std::vector<std::pair<int, int>>& vecItalic)
@@ -663,7 +964,7 @@ void CSRTDataManager::GetSRTDataItalicInfo(float fProgress, std::vector<std::pai
 
    size_t index = GetRelatedIndex(fProgress);
 
-   vecItalic.insert(vecItalic.end(), m_vecSRTData[index].vecItalicInfo.begin(), m_vecSRTData[index].vecItalicInfo.end());
+   m_vecSRTData[index]->GetItalicInfo(vecItalic);
 }
 
 void CSRTDataManager::GetSRTDataUnderlineInfo(float fProgress, std::vector<std::pair<int, int>>& vecUnderline)
@@ -674,10 +975,10 @@ void CSRTDataManager::GetSRTDataUnderlineInfo(float fProgress, std::vector<std::
 
    size_t index = GetRelatedIndex(fProgress);
 
-   vecUnderline.insert(vecUnderline.end(), m_vecSRTData[index].vecUnderlineInfo.begin(), m_vecSRTData[index].vecUnderlineInfo.end());
+   m_vecSRTData[index]->GetUnderlineInfo(vecUnderline);
 }
 
-void CSRTDataManager::GetSRTDataColorInfo(float fProgress, std::vector<ColorInfo>& vecColor)
+void CSRTDataManager::GetSRTDataColorInfo(float fProgress, std::vector<CSRTData::ColorInfo>& vecColor)
 {
    vecColor.clear();
 
@@ -685,8 +986,122 @@ void CSRTDataManager::GetSRTDataColorInfo(float fProgress, std::vector<ColorInfo
 
    size_t index = GetRelatedIndex(fProgress);
 
-   vecColor.insert(vecColor.end(), m_vecSRTData[index].vecColorInfo.begin(), m_vecSRTData[index].vecColorInfo.end());
+   m_vecSRTData[index]->GetColorInfo(vecColor);
 }
 
+std::shared_ptr<CSRTData> CSRTDataManager::GetData(float fProgress)
+{
+   std::lock_guard<std::mutex> lock(m_mutexSRTData);
 
+   size_t index = GetRelatedIndex(fProgress);
 
+   return m_vecSRTData[index];
+}
+
+int CSRTDataManager::ConvertUnicodeToUTF8CString(const wchar_t* pszUnicode, CStringA& strUTF8)
+{
+   // determine the size of buffer required then allocate it
+   int nStrLen = WideCharToMultiByte(CP_UTF8, 0, pszUnicode, -1, NULL, 0, NULL, NULL);
+   if (nStrLen == 0)
+   {
+      return 0;
+   }
+
+   // do the conversion
+   int nRet = WideCharToMultiByte(CP_UTF8, 0, pszUnicode, -1, strUTF8.GetBuffer(nStrLen), nStrLen, NULL, NULL);
+   strUTF8.ReleaseBuffer();
+
+   return nRet;
+}
+
+void CSRTData::SetContent(CString const & strContent)
+{
+   m_strContent = strContent;
+}
+
+CString CSRTData::GetUnstyledContent()
+{
+   return m_strContent;
+}
+
+CString CSRTData::GetStyledContent()
+{
+   return CString();
+}
+
+void CSRTData::SetStartTime(CString const & strTime)
+{
+   m_strStartTime = strTime;
+}
+
+CString CSRTData::GetStartTime()
+{
+   return m_strStartTime;
+}
+
+void CSRTData::SetEndTime(CString const & strTime)
+{
+   m_strEndTime = strTime;
+}
+
+CString CSRTData::GetEndTime()
+{
+   return m_strEndTime;
+}
+
+CString CSRTData::GetFormatTime()
+{
+   CString strTime = m_strStartTime;
+   strTime += _T(" --> ");
+   strTime += m_strEndTime;
+
+   return strTime;
+}
+
+void CSRTData::SetBoldInfo(std::vector<std::pair<int, int>>& vecInfo)
+{
+   m_vecBoldInfo.clear();
+   m_vecBoldInfo.insert(m_vecBoldInfo.end(), vecInfo.begin(), vecInfo.end());
+}
+
+void CSRTData::GetBoldInfo(std::vector<std::pair<int, int>>& vecInfo)
+{
+   vecInfo.clear();
+   vecInfo.insert(vecInfo.end(), m_vecBoldInfo.begin(), m_vecBoldInfo.end());
+}
+
+void CSRTData::SetItalicInfo(std::vector<std::pair<int, int>>& vecInfo)
+{
+   m_vecItalicInfo.clear();
+   m_vecItalicInfo.insert(m_vecItalicInfo.end(), vecInfo.begin(), vecInfo.end());
+}
+
+void CSRTData::GetItalicInfo(std::vector<std::pair<int, int>>& vecInfo)
+{
+   vecInfo.clear();
+   vecInfo.insert(vecInfo.end(), m_vecItalicInfo.begin(), m_vecItalicInfo.end());
+}
+
+void CSRTData::SetUnderlineInfo(std::vector<std::pair<int, int>>& vecInfo)
+{
+   m_vecUnderlineInfo.clear();
+   m_vecUnderlineInfo.insert(m_vecUnderlineInfo.end(), vecInfo.begin(), vecInfo.end());
+}
+
+void CSRTData::GetUnderlineInfo(std::vector<std::pair<int, int>>& vecInfo)
+{
+   vecInfo.clear();
+   vecInfo.insert(vecInfo.end(), m_vecUnderlineInfo.begin(), m_vecUnderlineInfo.end());
+}
+
+void CSRTData::SetColorInfo(std::vector<ColorInfo>& vecInfo)
+{
+   m_vecColorInfo.clear();
+   m_vecColorInfo.insert(m_vecColorInfo.end(), vecInfo.begin(), vecInfo.end());
+}
+
+void CSRTData::GetColorInfo(std::vector<ColorInfo>& vecInfo)
+{
+   vecInfo.clear();
+   vecInfo.insert(vecInfo.end(), m_vecColorInfo.begin(), m_vecColorInfo.end());
+}

@@ -19,7 +19,7 @@ public:
    DECLARE_MESSAGE_MAP()
 
 public:
-   void ShowSRTData(CSRTDataManager::SRTData const& data);
+   void ShowSRTData(float const& fProgress);
 
 private:
    HRESULT CreateDeviceIndependentResources();

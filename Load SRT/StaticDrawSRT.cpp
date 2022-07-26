@@ -148,7 +148,7 @@ void CStaticDrawSRT::PreSubclassWindow()
    CStatic::PreSubclassWindow();
 }
 
-void CStaticDrawSRT::ShowSRTData(CSRTDataManager::SRTData const& data)
+void CStaticDrawSRT::ShowSRTData(float const& fProgress)
 {
    if (m_pDWriteFactory == nullptr)
    {
@@ -163,13 +163,20 @@ void CStaticDrawSRT::ShowSRTData(CSRTDataManager::SRTData const& data)
       return;
    }
 
-   CString strData = data.startTime + _T("\n");
-   strData += data.endTime;
+   std::shared_ptr<CSRTData> pData = CSRTDataManager::GetInstance()->GetData(fProgress);
+
+   if (pData == nullptr)
+   {
+      return;
+   }
+
+   CString strData = pData->GetStartTime() + _T("\n");
+   strData += pData->GetEndTime();
    strData += _T("\n");
 
    int nIndexOffset = strData.GetLength();
 
-   strData += data.content;
+   strData += pData->GetUnstyledContent();
 
    ComPtr<IDWriteTextFormat> pD2DTextFormat = nullptr;
    HRESULT hr = m_pDWriteFactory->CreateTextFormat(
@@ -200,7 +207,9 @@ void CStaticDrawSRT::ShowSRTData(CSRTDataManager::SRTData const& data)
       &m_pTextLayout
    );
 
-   for (auto pColorInfo : data.vecColorInfo)
+   std::vector<CSRTData::ColorInfo> vecColoInfo;
+   pData->GetColorInfo(vecColoInfo);
+   for (auto pColorInfo : vecColoInfo)
    {
       D2D1_COLOR_F clrTextInfo = GetD2DColorFromColorref(pColorInfo.color, 100);
       for (auto pIndex : pColorInfo.vecIndex)
@@ -212,19 +221,25 @@ void CStaticDrawSRT::ShowSRTData(CSRTDataManager::SRTData const& data)
       }
    }
 
-   for (auto pBoldIndex : data.vecBoldInfo)
+   std::vector<std::pair<int, int>> vecBoldInfo;
+   pData->GetBoldInfo(vecBoldInfo);
+   for (auto pBoldIndex : vecBoldInfo)
    {
       DWRITE_TEXT_RANGE textRange = { static_cast<UINT32>(pBoldIndex.first + nIndexOffset), static_cast<UINT32>(pBoldIndex.second - pBoldIndex.first + 1) };
       m_pTextLayout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, textRange);
    }
 
-   for (auto pItalicIndex : data.vecItalicInfo)
+   std::vector<std::pair<int, int>> vecItalicInfo;
+   pData->GetItalicInfo(vecItalicInfo);
+   for (auto pItalicIndex : vecItalicInfo)
    {
       DWRITE_TEXT_RANGE textRange = { static_cast<UINT32>(pItalicIndex.first + nIndexOffset), static_cast<UINT32>(pItalicIndex.second - pItalicIndex.first + 1) };
       m_pTextLayout->SetFontStyle(DWRITE_FONT_STYLE_ITALIC, textRange);
    }
 
-   for (auto pUnderlineIndex : data.vecUnderlineInfo)
+   std::vector<std::pair<int, int>> vecUnderlineInfo;
+   pData->GetUnderlineInfo(vecUnderlineInfo);
+   for (auto pUnderlineIndex : vecUnderlineInfo)
    {
       DWRITE_TEXT_RANGE textRange = { static_cast<UINT32>(pUnderlineIndex.first + nIndexOffset), static_cast<UINT32>(pUnderlineIndex.second - pUnderlineIndex.first + 1) };
       m_pTextLayout->SetUnderline(TRUE, textRange);

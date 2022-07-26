@@ -1,0 +1,57 @@
+
+*.aps
+*.aps
+Load SRT/LoadSRT.aps
+Load SRT/.vs/Load SRT/v14/.suo
+Load SRT/.vs/Load SRT/v15/.suo
+Load SRT/.vs/Load SRT/v15/Browse.VC.db
+Load SRT/.vs/Load SRT/v15/Browse.VC.opendb
+Load SRT/.vs/Load SRT/v15/ipch/15dc2cd36537a923.ipch
+Load SRT/.vs/Load SRT/v16/.suo
+Load SRT/.vs/Load SRT/v16/Browse.VC.db
+Load SRT/Load SRT.sdf
+Load SRT/Load SRT.vcxproj.user
+*.aps
+Load SRT/LoadSRT.aps
+Load SRT/x64/Debug/DlgLoadSRTProgress.obj
+Load SRT/x64/Debug/Load SRT.exe
+Load SRT/x64/Debug/Load SRT.ilk
+Load SRT/x64/Debug/Load SRT.log
+Load SRT/x64/Debug/Load SRT.obj
+Load SRT/x64/Debug/Load SRT.pch
+Load SRT/x64/Debug/Load SRT.pdb
+Load SRT/x64/Debug/Load SRT.tlog/CL.command.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/CL.read.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/CL.write.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/link.command.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/link.read.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/link.write.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/Load SRT.lastbuildstate
+Load SRT/x64/Debug/Load SRT.tlog/rc.command.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/rc.read.1.tlog
+Load SRT/x64/Debug/Load SRT.tlog/rc.write.1.tlog
+Load SRT/x64/Debug/Load SRTDlg.obj
+Load SRT/x64/Debug/LoadSRT.res
+Load SRT/x64/Debug/SRTContentManager.obj
+Load SRT/x64/Debug/SRTDataManager.obj
+Load SRT/x64/Debug/StaticDrawSRT.obj
+Load SRT/x64/Debug/stdafx.obj
+Load SRT/x64/Debug/vc141.idb
+Load SRT/x64/Debug/vc141.pdb
+Load SRT/x64/Release/DlgLoadSRTProgress.obj
+Load SRT/x64/Release/Load SRT.obj
+Load SRT/x64/Release/Load SRT.tlog/CL.command.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/CL.read.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/CL.write.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/link.command.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/link.read.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/link.write.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/Load SRT.lastbuildstate
+Load SRT/x64/Release/Load SRT.tlog/Load SRT.write.1u.tlog
+Load SRT/x64/Release/Load SRT.tlog/rc.command.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/rc.read.1.tlog
+Load SRT/x64/Release/Load SRT.tlog/rc.write.1.tlog
+Load SRT/x64/Release/Load SRTDlg.obj
+Load SRT/x64/Release/SRTDataManager.obj
+Load SRT/x64/Release/StaticDrawSRT.obj
+Load SRT/x64/Release/stdafx.obj

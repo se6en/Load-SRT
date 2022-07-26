@@ -38,8 +38,13 @@ protected:
 public:
    afx_msg void OnBnClickedButtonLoadSrtFile();
 
+   afx_msg void OnBnClickedButtonExportTXT();
+   afx_msg void OnBnClickedButtonExportSRT();
+
 private:
    CStaticDrawSRT                  m_staticDrawSRT;
    CButton                         m_btnLoad;
    CSliderCtrl                     m_sliderProgress;
+   CButton                         m_btnExportTXT;
+   CButton                         m_btnExportSRT;
 };
