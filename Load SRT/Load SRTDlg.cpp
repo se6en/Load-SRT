@@ -254,7 +254,27 @@ void CLoadSRTDlg::OnBnClickedButtonExportSRT()
    int nCount = CSRTDataManager::GetInstance()->GetSRTDataCount();
    for (int i = 0; i < nCount; i++)
    {
-      CString strContent = CSRTDataManager::GetInstance()->GetUnstyledContent(i);
+      // index
+      CString strIndex;
+      strIndex.Format(_T("%d"), i + 1);
+      CStringA strUTF8Index;
+      int nIndexLegnth = CSRTDataManager::GetInstance()->ConvertUnicodeToUTF8CString(strIndex, strUTF8Index);
+      if (nIndexLegnth > 0 && !strUTF8Index.IsEmpty())
+      {
+         file.Write(strUTF8Index, strUTF8Index.GetLength());
+         file.Write("\r\n", 2);
+      }
+
+      CString strTime = CSRTDataManager::GetInstance()->GetTime(i);
+      CStringA strUTF8Time;
+      int nTimeLegnth = CSRTDataManager::GetInstance()->ConvertUnicodeToUTF8CString(strTime, strUTF8Time);
+      if (nTimeLegnth > 0 && !strUTF8Time.IsEmpty())
+      {
+         file.Write(strUTF8Time, strUTF8Time.GetLength());
+         file.Write("\r\n", 2);
+      }
+
+      CString strContent = CSRTDataManager::GetInstance()->GetStyledContent(i);
       if (!strContent.IsEmpty())
       {
          CStringA strUTF8;
@@ -262,10 +282,10 @@ void CLoadSRTDlg::OnBnClickedButtonExportSRT()
          if (nLegnth > 0 && !strUTF8.IsEmpty())
          {
             file.Write(strUTF8, strUTF8.GetLength());
+            file.Write("\r\n", 2);
          }
       }
 
-      file.Write("\r\n", 2);
       file.Write("\r\n", 2);
    }
 

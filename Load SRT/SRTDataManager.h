@@ -40,6 +40,20 @@ public:
    void GetColorInfo(std::vector<ColorInfo>& vecInfo);
 
 private:
+   struct InsertInfo
+   {
+      InsertInfo() {}
+      InsertInfo(int nStart, int nLength)
+         : start(nStart), length(nLength)
+      {}
+      int start;
+      int length;
+   };
+
+   void InsertFormatInfo(CString& strContent, CString const strStart, CString const strEnd, std::vector<std::pair<int, int>>& vecFormatInfo, std::vector<InsertInfo>& vecInsertInfo);
+
+   void InsertColorInfo(CString& strContent, std::vector<InsertInfo>& vecInsertInfo);
+
    CString m_strStartTime;
    CString m_strEndTime;
    CString m_strContent;
@@ -61,6 +75,8 @@ public:
 
    static CSRTDataManager* GetInstance();
 
+   void ClearSRTData();
+
    void AddSRTData(CString strStartTime, CString strEndTime, CString content);
 
    BOOL HasValidData() const;
@@ -70,16 +86,6 @@ public:
    CString GetUnstyledContent(int nIndex);
 
    CString GetTime(int nIndex);
-
-   struct InsertInfo
-   {
-      InsertInfo() {}
-      InsertInfo(int nStart, int nLength)
-         : start(nStart), length(nLength)
-      {}
-      int start;
-      int length;
-   };
 
    CString GetStyledContent(int nIndex);
 

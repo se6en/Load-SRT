@@ -588,6 +588,8 @@ void CDlgLoadSRTProgress::LoadSRTData()
 
 void CDlgLoadSRTProgress::LoadInit()
 {
+   CSRTDataManager::GetInstance()->ClearSRTData();
+
    m_nLoadingState = LOADING_INITIALIZE;
 }
 

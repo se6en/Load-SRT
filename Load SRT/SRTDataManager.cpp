@@ -236,6 +236,15 @@ BOOL IsValidHexString(std::wstring const wHexString)
    return TRUE;
 }
 
+CString GetColorString(COLORREF color, int nOpacity)
+{
+   CString strHexValue;
+   strHexValue.Format(_T("<font color=#%02X%02X%02X%02X>"), GetRValue(color), GetGValue(color), GetBValue(color), nOpacity);
+   ASSERT(!strHexValue.IsEmpty());
+
+   return strHexValue;
+}
+
 HRESULT GetColorFromHex(CString const& strContent, COLORREF& color)
 {
    if (strContent.GetAt(0) != L'#')
@@ -755,6 +764,12 @@ void CSRTDataManager::ParseColorInfo(CString const& content, std::vector<CSRTDat
 
 }
 
+void CSRTDataManager::ClearSRTData()
+{
+   std::lock_guard<std::mutex> lock(m_mutexSRTData);
+   m_vecSRTData.clear();
+}
+
 void CSRTDataManager::AddSRTData(CString strStartTime, CString strEndTime, CString strContent)
 {
    std::shared_ptr<CSRTData> pData = std::make_shared<CSRTData>();
@@ -1026,7 +1041,16 @@ CString CSRTData::GetUnstyledContent()
 
 CString CSRTData::GetStyledContent()
 {
-   return CString();
+   CString strContent = m_strContent;
+   std::vector<InsertInfo> vecInsertInfo;
+   
+   InsertFormatInfo(strContent, BOLD_TAG_PREFIX, BOLD_TAG_SUFFIX, m_vecBoldInfo, vecInsertInfo);
+   InsertFormatInfo(strContent, ITALIC_TAG_PREFIX, ITALIC_TAG_SUFFIX, m_vecItalicInfo, vecInsertInfo);
+   InsertFormatInfo(strContent, UNDERLINE_TAG_PREFIX, UNDERLINE_TAG_SUFFIX, m_vecUnderlineInfo, vecInsertInfo);
+
+   InsertColorInfo(strContent, vecInsertInfo);
+
+   return strContent;
 }
 
 void CSRTData::SetStartTime(CString const & strTime)
@@ -1104,4 +1128,89 @@ void CSRTData::GetColorInfo(std::vector<ColorInfo>& vecInfo)
 {
    vecInfo.clear();
    vecInfo.insert(vecInfo.end(), m_vecColorInfo.begin(), m_vecColorInfo.end());
+}
+
+void CSRTData::InsertFormatInfo(CString& strContent, CString const strStart, CString const strEnd, std::vector<std::pair<int, int>>& vecFormatInfo, std::vector<InsertInfo>& vecInsertInfo)
+{
+   if (vecFormatInfo.empty())
+   {
+      return;
+   }
+
+   for (auto pInfo : vecFormatInfo)
+   {
+      int nStart = pInfo.first;
+      int nEnd = pInfo.second;
+
+      int nStartOffset = 0;
+      int nEndOffset = 0;
+      for (size_t i = 0; i < vecInsertInfo.size(); i++)
+      {
+         if (nStart >= vecInsertInfo[i].start)
+         {
+            nStartOffset += vecInsertInfo[i].length;
+         }
+
+         if (nEnd >= vecInsertInfo[i].start)
+         {
+            nEndOffset += vecInsertInfo[i].length;
+         }
+      }
+
+      strContent.Insert(nStart + nStartOffset, strStart);
+      
+      nEnd += strStart.GetLength();
+      strContent.Insert(nEnd + nEndOffset + 1, strEnd);
+
+      vecInsertInfo.emplace_back(pInfo.first, strStart.GetLength());
+      vecInsertInfo.emplace_back(pInfo.second, strEnd.GetLength());
+   }
+}
+
+void CSRTData::InsertColorInfo(CString& strContent, std::vector<InsertInfo>& vecInsertInfo)
+{
+   if (m_vecColorInfo.empty())
+   {
+      return;
+   }
+
+   std::vector<InsertInfo> vecInsertColorInfo;
+   for (auto pInfo : m_vecColorInfo)
+   {
+      CString strColorStartTag = GetColorString(pInfo.color, 255);
+      CString strColorEndTag = COLOR_TAG_SUFFIX;
+
+      for (auto pIndex : pInfo.vecIndex)
+      {
+         int nStart = pIndex.first;
+         int nEnd = pIndex.second;
+
+         vecInsertColorInfo.emplace_back(nStart, strColorStartTag.GetLength());
+         vecInsertColorInfo.emplace_back(nEnd, strColorEndTag.GetLength());
+
+         int nStartOffset = 0;
+         int nEndOffset = 0;
+         for (size_t i = 0; i < vecInsertInfo.size(); i++)
+         {
+            if (nStart >= vecInsertInfo[i].start)
+            {
+               nStartOffset += vecInsertInfo[i].length;
+            }
+
+            if (nEnd >= vecInsertInfo[i].start)
+            {
+               nEndOffset += vecInsertInfo[i].length;
+            }
+         }
+
+         strContent.Insert(nStart + nStartOffset, strColorStartTag);
+
+         nEnd += strColorStartTag.GetLength();
+         strContent.Insert(nEnd + nEndOffset + 1, strColorEndTag);
+
+         vecInsertInfo.emplace_back(pIndex.first, strColorStartTag.GetLength());
+         vecInsertInfo.emplace_back(pIndex.second, strColorEndTag.GetLength());
+      }
+   }
+
 }
