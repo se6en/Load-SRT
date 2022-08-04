@@ -54,7 +54,6 @@ void SplitString(CString const& strSource, CStringArray& strDest, CString const 
 struct NamedColor { CString name; const COLORREF color; };
 
 const NamedColor namedColors[] = {
-    { _T("transparent"), RGB(0, 0, 0) },
     { _T("aliceblue"), RGB(240, 248, 255) },
     { _T("antiquewhite"), RGB(250, 235, 215) },
     { _T("aqua"), RGB(0, 255, 255)},
@@ -174,6 +173,7 @@ const NamedColor namedColors[] = {
     { _T("plum"), RGB( 221, 160, 221)},
     { _T("powderblue"), RGB( 176, 224, 230)},
     { _T("purple"), RGB( 128, 0, 128)},
+    { _T("rebeccapurple"), RGB(102, 51, 153) },
     { _T("red"), RGB( 255, 0, 0)},
     { _T("rosybrown"), RGB( 188, 143, 143)},
     { _T("royalblue"), RGB( 65, 105, 225)},
